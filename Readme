@@ -19,3 +19,6 @@ logout.c:3:1: note: include ‘<stdio.h>’ or provide a declaration of ‘print
     2 | #include <stdlib.h>
   +++ |+#include <stdio.h>
     3 | 
+
+
+gcc server.c register.c login.c logout.c cJSON.c -o server -I./path/to/cjson -lcjson
