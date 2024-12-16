@@ -1,0 +1,2 @@
+gcc server.c register.c login.c logout.c cJSON.c -o server -lcjson
+gcc client.c -o client
