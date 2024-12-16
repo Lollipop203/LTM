@@ -1,6 +1,9 @@
 gcc server.c register.c login.c logout.c cJSON.c -o server -lcjson
 gcc client.c -o client
 
+git clone --branch game_v3 https://github.com/dvb4323/knowledge-arena.git
+gcc server.c logic.c cJSON.c -o server
+gcc client.c cJSON.c -o client
 
 server.c:6:10: fatal error: register.h: No such file or directory
     6 | #include <register.h>
