@@ -2,46 +2,19 @@ gcc server.c register.c login.c logout.c cJSON.c -o server -lcjson
 gcc client.c -o client
 
 
-register.c:6:10: fatal error: cJSON.h: No such file or directory
-    6 | #include <cJSON.h>
+server.c:6:10: fatal error: register.h: No such file or directory
+    6 | #include <register.h>
+      |          ^~~~~~~~~~~~
+compilation terminated.
+register.c:1:10: fatal error: register.h: No such file or directory
+    1 | #include <register.h>
+      |          ^~~~~~~~~~~~
+compilation terminated.
+login.c:1:10: fatal error: login.h: No such file or directory
+    1 | #include <login.h>
       |          ^~~~~~~~~
 compilation terminated.
-login.c:6:10: fatal error: cJSON.h: No such file or directory
-    6 | #include <cJSON.h>
-      |          ^~~~~~~~~
+logout.c:1:10: fatal error: logout.h: No such file or directory
+    1 | #include <logout.h>
+      |          ^~~~~~~~~~
 compilation terminated.
-logout.c: In function ‘logout’:
-logout.c:6:5: warning: implicit declaration of function ‘printf’ [-Wimplicit-function-declaration]
-    6 |     printf("You have successfully logged out.\n");
-      |     ^~~~~~
-logout.c:6:5: warning: incompatible implicit declaration of built-in function ‘printf’
-logout.c:3:1: note: include ‘<stdio.h>’ or provide a declaration of ‘printf’
-    2 | #include <stdlib.h>
-  +++ |+#include <stdio.h>
-    3 | 
-
-
-gcc server.c register.c login.c logout.c cJSON.c -o server -I./path/to/cjson -lcjson
-
-
-cc1: warning: /home/kien/LTM/LTM/cJSON.h: not a directory
-server.c:9:10: fatal error: cJSON.h: No such file or directory
-    9 | #include <cJSON.h>
-      |          ^~~~~~~~~
-compilation terminated.
-cc1: warning: /home/kien/LTM/LTM/cJSON.h: not a directory
-register.c:6:10: fatal error: cJSON.h: No such file or directory
-    6 | #include <cJSON.h>
-      |          ^~~~~~~~~
-compilation terminated.
-cc1: warning: /home/kien/LTM/LTM/cJSON.h: not a directory
-login.c:6:10: fatal error: cJSON.h: No such file or directory
-    6 | #include <cJSON.h>
-      |          ^~~~~~~~~
-compilation terminated.
-cc1: warning: /home/kien/LTM/LTM/cJSON.h: not a directory
-logout.c:3:10: fatal error: cJSON.h: No such file or directory
-    3 | #include <cJSON.h>
-      |          ^~~~~~~~~
-compilation terminated.
-cc1: warning: /home/kien/LTM/LTM/cJSON.h: not a directory
