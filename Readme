@@ -1,26 +1,73 @@
-gcc server.c register.c login.c logout.c cJSON.c -o server -lcjson
-gcc client.c -o client
-
-git clone --branch master --single-branch https://github.com/dvb4323/knowledge-arena.git
-
-
-git clone --branch game_v3 https://github.com/dvb4323/knowledge-arena.git
-gcc server.c logic.c cJSON.c -o server
-gcc client.c cJSON.c -o client
-
-server.c:6:10: fatal error: register.h: No such file or directory
-    6 | #include <register.h>
-      |          ^~~~~~~~~~~~
-compilation terminated.
-register.c:1:10: fatal error: register.h: No such file or directory
-    1 | #include <register.h>
-      |          ^~~~~~~~~~~~
-compilation terminated.
-login.c:1:10: fatal error: login.h: No such file or directory
-    1 | #include <login.h>
-      |          ^~~~~~~~~
-compilation terminated.
-logout.c:1:10: fatal error: logout.h: No such file or directory
-    1 | #include <logout.h>
-      |          ^~~~~~~~~~
-compilation terminated.
+bool validate_answer(int player_id, int question_id, int selected_option)
+{
+    // Reload the latest players data from the file to avoid overwriting fields
+    char *data = read_file(PLAYERS_FILE);
+    if (!data)
+    {
+        fprintf(stderr, "Failed to read players.json.\n");
+        return false;
+    }
+ 
+    cJSON *updated_players_data = cJSON_Parse(data);
+    free(data);
+    if (!updated_players_data || !cJSON_IsArray(updated_players_data))
+    {
+        fprintf(stderr, "Failed to parse players.json.\n");
+        cJSON_Delete(updated_players_data);
+        return false;
+    }
+ 
+    // Find the player in the updated data
+    cJSON *player = NULL;
+    cJSON_ArrayForEach(player, updated_players_data)
+    {
+        cJSON *id = cJSON_GetObjectItem(player, "player_id");
+        if (id && id->valueint == player_id)
+        {
+            // Ensure player is not eliminated
+            if (cJSON_IsTrue(cJSON_GetObjectItem(player, "eliminated")))
+            {
+                cJSON_Delete(updated_players_data);
+                return false;
+            }
+ 
+            // Load the question
+            cJSON *question = get_question_by_id(question_id);
+            if (!question)
+            {
+                cJSON_Delete(updated_players_data);
+                return false;
+            }
+ 
+            // Validate answer
+            int correct_option = cJSON_GetObjectItem(question, "correct_option")->valueint;
+            if (selected_option == correct_option)
+            {
+                // Update the score only
+                int score = cJSON_GetObjectItem(player, "score")->valueint;
+                cJSON_ReplaceItemInObject(player, "score", cJSON_CreateNumber(score + 10));
+            }
+            else
+            {
+                // Mark player as eliminated
+                cJSON_ReplaceItemInObject(player, "eliminated", cJSON_CreateBool(true));
+            }
+ 
+            cJSON_Delete(question); // Free memory for question
+            break;                  // Stop searching after finding the player
+        }
+    }
+ 
+    // Save only the updated players data back to the file
+    char *updated_data = cJSON_Print(updated_players_data);
+    if (!write_file(PLAYERS_FILE, updated_data))
+    {
+        free(updated_data);
+        cJSON_Delete(updated_players_data);
+        return false;
+    }
+ 
+    free(updated_data);             // Cleanup memory
+    cJSON_Delete(updated_players_data); // Free JSON data
+    return true;                    // Update successful
+}
