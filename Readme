@@ -1,73 +1,117 @@
-bool validate_answer(int player_id, int question_id, int selected_option)
+void select_main_player_and_broadcast()
 {
-    // Reload the latest players data from the file to avoid overwriting fields
-    char *data = read_file(PLAYERS_FILE);
-    if (!data)
+    // Open players.json to retrieve players' data
+    FILE *file = fopen(PLAYERS_FILE, "r");
+    if (!file)
     {
-        fprintf(stderr, "Failed to read players.json.\n");
-        return false;
+        perror("Failed to open players.json");
+        return;
     }
- 
-    cJSON *updated_players_data = cJSON_Parse(data);
-    free(data);
-    if (!updated_players_data || !cJSON_IsArray(updated_players_data))
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *content = (char *)malloc(length + 1);
+    if (!content)
     {
-        fprintf(stderr, "Failed to parse players.json.\n");
-        cJSON_Delete(updated_players_data);
-        return false;
+        fclose(file);
+        printf("Memory allocation error.\n");
+        return;
     }
- 
-    // Find the player in the updated data
+
+    fread(content, 1, length, file);
+    fclose(file);
+    content[length] = '\0';
+
+    cJSON *players_data = cJSON_Parse(content);
+    free(content);
+    if (!players_data || !cJSON_IsArray(players_data))
+    {
+        printf("Error: Players data not found or invalid.\n");
+        cJSON_Delete(players_data);
+        return;
+    }
+
     cJSON *player = NULL;
-    cJSON_ArrayForEach(player, updated_players_data)
+    int selected_player_id = -1;
+    double min_elapsed_time = __DBL_MAX__;
+
+    // Iterate through players to find the main player
+    cJSON_ArrayForEach(player, players_data)
     {
-        cJSON *id = cJSON_GetObjectItem(player, "player_id");
-        if (id && id->valueint == player_id)
+        cJSON *logged_in = cJSON_GetObjectItem(player, "logged_in");
+        cJSON *eliminated = cJSON_GetObjectItem(player, "eliminated");
+        cJSON *player_id = cJSON_GetObjectItem(player, "player_id");
+        cJSON *elapsed_time = cJSON_GetObjectItem(player, "elapsed_time");
+        cJSON *answer_correct = cJSON_GetObjectItem(player, "answer_correct");
+
+        if (cJSON_IsTrue(logged_in) && !cJSON_IsTrue(eliminated) &&
+            cJSON_IsNumber(elapsed_time) && cJSON_IsTrue(answer_correct))
         {
-            // Ensure player is not eliminated
-            if (cJSON_IsTrue(cJSON_GetObjectItem(player, "eliminated")))
+            double time = elapsed_time->valuedouble;
+            if (time < min_elapsed_time)
             {
-                cJSON_Delete(updated_players_data);
-                return false;
+                min_elapsed_time = time;
+                selected_player_id = player_id->valueint;
             }
- 
-            // Load the question
-            cJSON *question = get_question_by_id(question_id);
-            if (!question)
+        }
+    }
+
+    if (selected_player_id != -1)
+    {
+        // Update players.json to mark the main player
+        cJSON_ArrayForEach(player, players_data)
+        {
+            cJSON *player_id = cJSON_GetObjectItem(player, "player_id");
+            if (player_id && player_id->valueint == selected_player_id)
             {
-                cJSON_Delete(updated_players_data);
-                return false;
-            }
- 
-            // Validate answer
-            int correct_option = cJSON_GetObjectItem(question, "correct_option")->valueint;
-            if (selected_option == correct_option)
-            {
-                // Update the score only
-                int score = cJSON_GetObjectItem(player, "score")->valueint;
-                cJSON_ReplaceItemInObject(player, "score", cJSON_CreateNumber(score + 10));
+                cJSON_ReplaceItemInObject(player, "main_player", cJSON_CreateBool(true));
             }
             else
             {
-                // Mark player as eliminated
-                cJSON_ReplaceItemInObject(player, "eliminated", cJSON_CreateBool(true));
+                cJSON_ReplaceItemInObject(player, "main_player", cJSON_CreateBool(false));
             }
- 
-            cJSON_Delete(question); // Free memory for question
-            break;                  // Stop searching after finding the player
         }
+
+        // Save updated players.json
+        FILE *save_file = fopen(PLAYERS_FILE, "w");
+        if (save_file)
+        {
+            char *updated_content = cJSON_Print(players_data);
+            fwrite(updated_content, 1, strlen(updated_content), save_file);
+            fclose(save_file);
+            free(updated_content);
+        }
+        else
+        {
+            perror("Failed to save updated players.json");
+            cJSON_Delete(players_data);
+            return;
+        }
+
+        // Broadcast message to all clients
+        cJSON *broadcast_message = cJSON_CreateObject();
+        cJSON_AddStringToObject(broadcast_message, "type", "Select main player");
+
+        cJSON *data = cJSON_CreateObject();
+        char message[100];
+        snprintf(message, sizeof(message), "player_id%d has been selected as the main player", selected_player_id);
+        cJSON_AddStringToObject(data, "message", message);
+        cJSON_AddItemToObject(broadcast_message, "data", data);
+
+        char *message_str = cJSON_PrintUnformatted(broadcast_message);
+        broadcast(message_str);
+
+        free(message_str);
+        cJSON_Delete(broadcast_message);
+
+        printf("Main player selected: player_id%d\n", selected_player_id);
     }
- 
-    // Save only the updated players data back to the file
-    char *updated_data = cJSON_Print(updated_players_data);
-    if (!write_file(PLAYERS_FILE, updated_data))
+    else
     {
-        free(updated_data);
-        cJSON_Delete(updated_players_data);
-        return false;
+        printf("No eligible player found to be the main player.\n");
     }
- 
-    free(updated_data);             // Cleanup memory
-    cJSON_Delete(updated_players_data); // Free JSON data
-    return true;                    // Update successful
+
+    cJSON_Delete(players_data);
 }
